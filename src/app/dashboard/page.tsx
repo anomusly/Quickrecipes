@@ -1,75 +1,83 @@
 'use client'
 
-import { useState } from 'react'
-import { ChefHat, Search, Filter, SlidersHorizontal } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChefHat, Search, Filter, SlidersHorizontal, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { IngredientSelector } from '@/components/ingredient-selector'
 import { RecipeCard } from '@/components/recipe-card'
-
-// Mock recipe data
-const mockRecipes = [
-  {
-    id: '1',
-    title: 'Chicken Fried Rice',
-    description: 'Quick and delicious fried rice with chicken and vegetables',
-    cookTime: 15,
-    servings: 4,
-    difficulty: 'Easy' as const,
-    rating: 4.5,
-    ingredients: ['chicken', 'rice', 'eggs', 'soy sauce', 'vegetables'],
-    matchPercentage: 95
-  },
-  {
-    id: '2',
-    title: 'Tomato Pasta',
-    description: 'Simple pasta with fresh tomatoes and herbs',
-    cookTime: 20,
-    servings: 2,
-    difficulty: 'Easy' as const,
-    rating: 4.2,
-    ingredients: ['pasta', 'tomatoes', 'garlic', 'basil', 'olive oil'],
-    matchPercentage: 80
-  },
-  {
-    id: '3',
-    title: 'Chicken Caesar Salad',
-    description: 'Fresh salad with grilled chicken and caesar dressing',
-    cookTime: 10,
-    servings: 2,
-    difficulty: 'Easy' as const,
-    rating: 4.7,
-    ingredients: ['chicken', 'lettuce', 'parmesan', 'croutons', 'caesar dressing'],
-    matchPercentage: 75
-  }
-]
+import { Recipe } from '@/lib/recipe-api'
 
 export default function Dashboard() {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [favorites, setFavorites] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
+  const [recipes, setRecipes] = useState<Recipe[]>([])
+  const [loading, setLoading] = useState(false)
+  const [maxCookTime, setMaxCookTime] = useState<number | null>(null)
+  const [difficulty, setDifficulty] = useState<string>('')
+
+  // Search recipes function
+  const searchRecipes = async () => {
+    if (selectedIngredients.length === 0 && !searchQuery.trim()) {
+      setRecipes([])
+      return
+    }
+
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+
+      if (selectedIngredients.length > 0) {
+        params.append('ingredients', selectedIngredients.join(','))
+      }
+
+      if (searchQuery.trim()) {
+        params.append('query', searchQuery.trim())
+      }
+
+      if (maxCookTime) {
+        params.append('maxReadyTime', maxCookTime.toString())
+      }
+
+      const response = await fetch(`/api/recipes/search?${params}`)
+      const data = await response.json()
+
+      if (response.ok) {
+        setRecipes(data.recipes || [])
+      } else {
+        console.error('Recipe search failed:', data.error)
+        setRecipes([])
+      }
+    } catch (error) {
+      console.error('Error searching recipes:', error)
+      setRecipes([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Search when ingredients or query changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchRecipes()
+    }, 500) // Debounce search
+
+    return () => clearTimeout(timeoutId)
+  }, [selectedIngredients, searchQuery, maxCookTime])
+
+  // Load initial recipes
+  useEffect(() => {
+    searchRecipes()
+  }, [])
 
   const handleFavorite = (recipeId: string) => {
-    setFavorites(prev => 
-      prev.includes(recipeId) 
+    setFavorites(prev =>
+      prev.includes(recipeId)
         ? prev.filter(id => id !== recipeId)
         : [...prev, recipeId]
     )
   }
-
-  const filteredRecipes = mockRecipes.filter(recipe => {
-    const matchesSearch = recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesIngredients = selectedIngredients.length === 0 || 
-                              selectedIngredients.some(ingredient => 
-                                recipe.ingredients.some(recipeIngredient => 
-                                  recipeIngredient.toLowerCase().includes(ingredient.toLowerCase())
-                                )
-                              )
-    
-    return matchesSearch && matchesIngredients
-  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -144,23 +152,31 @@ export default function Dashboard() {
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Max Cook Time
                       </label>
-                      <select className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
-                        <option>Any time</option>
-                        <option>15 minutes</option>
-                        <option>30 minutes</option>
-                        <option>1 hour</option>
+                      <select
+                        value={maxCookTime || ''}
+                        onChange={(e) => setMaxCookTime(e.target.value ? parseInt(e.target.value) : null)}
+                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="">Any time</option>
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
                       </select>
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Difficulty
                       </label>
-                      <select className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
-                        <option>Any difficulty</option>
-                        <option>Easy</option>
-                        <option>Medium</option>
-                        <option>Hard</option>
+                      <select
+                        value={difficulty}
+                        onChange={(e) => setDifficulty(e.target.value)}
+                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="">Any difficulty</option>
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
                       </select>
                     </div>
                   </div>
@@ -173,34 +189,64 @@ export default function Dashboard() {
           <div className="lg:col-span-3">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-gray-900">
-                {selectedIngredients.length > 0 
+                {selectedIngredients.length > 0
                   ? `Recipes with ${selectedIngredients.join(', ')}`
-                  : 'All Recipes'
+                  : searchQuery
+                    ? `Search results for "${searchQuery}"`
+                    : 'Discover Recipes'
                 }
               </h1>
-              <p className="text-gray-600">
-                {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''} found
-              </p>
+              <div className="flex items-center space-x-2">
+                {loading && <Loader2 className="h-4 w-4 animate-spin text-orange-600" />}
+                <p className="text-gray-600">
+                  {recipes.length} recipe{recipes.length !== 1 ? 's' : ''} found
+                </p>
+              </div>
             </div>
 
             {/* Recipe Grid */}
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredRecipes.map((recipe) => (
-                <RecipeCard
-                  key={recipe.id}
-                  recipe={recipe}
-                  onFavorite={handleFavorite}
-                  isFavorited={favorites.includes(recipe.id)}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse">
+                    <div className="h-48 bg-gray-200"></div>
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {recipes.map((recipe) => (
+                  <RecipeCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    onFavorite={handleFavorite}
+                    isFavorited={favorites.includes(recipe.id)}
+                  />
+                ))}
+              </div>
+            )}
 
-            {filteredRecipes.length === 0 && (
+            {!loading && recipes.length === 0 && (selectedIngredients.length > 0 || searchQuery.trim()) && (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">🔍</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No recipes found</h3>
                 <p className="text-gray-600">
                   Try adjusting your search or adding different ingredients
+                </p>
+              </div>
+            )}
+
+            {!loading && recipes.length === 0 && selectedIngredients.length === 0 && !searchQuery.trim() && (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">🍳</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to cook?</h3>
+                <p className="text-gray-600">
+                  Add some ingredients or search for recipes to get started
                 </p>
               </div>
             )}

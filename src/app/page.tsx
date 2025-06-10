@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { ChefHat, Search, Clock, Users, Star, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+// import { useAuth } from '@/contexts/auth-context'
+// import { AuthModal } from '@/components/auth-modal'
 
 export default function Home() {
   const [ingredients, setIngredients] = useState('')
@@ -23,9 +25,9 @@ export default function Home() {
             <Link href="/favorites" className="text-gray-600 hover:text-orange-600 transition-colors">
               Favorites
             </Link>
-            <button className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
-              Sign In
-            </button>
+            <Link href="/dashboard" className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+              Get Started
+            </Link>
           </div>
         </nav>
       </header>
@@ -86,6 +88,12 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* Auth Modal - Temporarily disabled */}
+      {/* <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      /> */}
     </div>
   )
 }
